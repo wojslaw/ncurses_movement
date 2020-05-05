@@ -311,7 +311,6 @@ int main()//int argc, char * argv[])
 	wrefresh(win_dungeon);
 
 	enum tiletype set_tiletype = tiletype_walkable;
-	bool flag_change_tile = false;
 	bool flag_move_cursor = false;
 	bool flag_set_tiletype_at_cursor = false;
 	int ch;
@@ -339,20 +338,14 @@ int main()//int argc, char * argv[])
 			case 'l':
 				++(move_c);
 				break;
-			case 'T':
-				flag_change_tile = false;
-				break;
 			case 'W':
 				set_tiletype = tiletype_walkable;
-				flag_change_tile = true;
 				break;
 			case 'V':
 				set_tiletype = tiletype_void;
-				flag_change_tile = true;
 				break;
 			case 'S':
 				set_tiletype = tiletype_solid;
-				flag_change_tile = true;
 				break;
 			case 'C':
 				flag_move_cursor = true;
@@ -369,9 +362,6 @@ int main()//int argc, char * argv[])
 		if( flag_set_tiletype_at_cursor ) {
 			b.change_tiletype_at_cursor( win_dungeon , set_tiletype );
 			flag_set_tiletype_at_cursor = false;
-		}
-		if( (!flag_move_cursor) && flag_change_tile && (move_r || move_c) ) {
-			b.change_tiletype_relative_to_player( win_dungeon , move_r , move_c , set_tiletype );
 		}
 		if( flag_move_cursor ) {
 			b.move_cursor_by( win_dungeon , move_r , move_c );
