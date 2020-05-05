@@ -41,7 +41,8 @@ struct Position {
 
 
 struct Board {
-	enum tiletype tile[DUNGEON_SIZE_ROWS][DUNGEON_SIZE_COLS] = { 0 };
+	//enum tiletype tile[DUNGEON_SIZE_ROWS][DUNGEON_SIZE_COLS] = { 0 };
+	std::vector< std::vector<enum tiletype> > tile;
 	Position player;
 	void wprint_board(WINDOW * w);
 	void wprint_position(WINDOW * w);
@@ -62,7 +63,25 @@ struct Board {
 			,int const delta_r
 			,int const delta_c
 			,enum tiletype tt);
+	Board( int const rows , int const cols );
+	Board( ) : Board(
+		 DUNGEON_SIZE_ROWS
+		, DUNGEON_SIZE_COLS ) {}
 };
+
+
+Board::Board( int const rows , int const cols ){
+	assert(rows > 1);
+	assert(cols > 1);
+	tile.resize(rows);
+	for( auto &each_row : tile  ) {
+		each_row.resize(cols);
+		for( auto &each_cell : each_row ) {
+			each_cell = tiletype_walkable;
+		}
+	}
+}
+
 
 void
 Board::wprint_tile( WINDOW * w , int const r , int const c ) {
@@ -179,7 +198,7 @@ Board::change_tiletype_relative_to_player(
 }
 
 
-int main(int argc, char * argv[])
+int main()//int argc, char * argv[])
 {
 	/* ncurses_init {   */
 	/* boilerplate from http://tldp.org/HOWTO/NCURSES-Programming-HOWTO */
@@ -261,6 +280,9 @@ int main(int argc, char * argv[])
 		}
 		b.move_player_by( win_dungeon , move_r , move_c );
 		wrefresh(win_dungeon);
+		werase(win_text);
+		b.wprint_position(win_text);
+		wrefresh(win_text);
 	}
 
 
