@@ -2,11 +2,15 @@
 #include <stdlib.h>
 #include <ncurses.h>
 #include <vector>
+#include <assert.h>
 
 // TODO
-//   1. Board::move_by(int delta_row, delta_col)
-//   2. move with keyboard
-//   3. pick and show path of movement (somehow)
+//  ✓1. Board::move_by(int delta_row, delta_col)
+//  ✓2. move with keyboard
+//  ✓3. change tiletype in-game
+//   4. save and load the state of the board
+//   5. not compile-time-only setting of boardsize
+//   6. pick and show path of movement (somehow)
 
 
 enum tiletype {
@@ -24,8 +28,10 @@ const char * TILECHARACTER[] = {
 const char * CHAR_PLAYER = "@";
 
 
-size_t const DUNGEON_SIZE_ROWS = 0x4;
-size_t const DUNGEON_SIZE_COLS = 0x8;
+int const DUNGEON_SIZE_ROWS = 0x8;
+static_assert(DUNGEON_SIZE_ROWS > 0);
+int const DUNGEON_SIZE_COLS = 0xc;
+static_assert(DUNGEON_SIZE_COLS > 0);
 
 
 struct Position {
@@ -45,6 +51,17 @@ struct Board {
 	void move_player_by( WINDOW * w , int const delta_r , int const delta_c );
 	void wprint_tile( WINDOW * w , int const r , int const c );
 	void wprint_player(WINDOW * w);
+
+	void change_tiletype_at(
+			WINDOW * w
+			,int const r
+			,int const c
+			,enum tiletype tt);
+	void change_tiletype_relative_to_player(
+			WINDOW * w
+			,int const delta_r
+			,int const delta_c
+			,enum tiletype tt);
 };
 
 void
@@ -104,7 +121,11 @@ Board::is_walkable( int const r , int const c ) {
 
 
 void
-Board::move_player( WINDOW * w , int const r , int const c ) {
+Board::move_player(
+		WINDOW * w
+		, int const r
+		, int const c )
+{
 	wprint_tile( w , player.row , player.col );
 	if( is_walkable(r , c) ) {
 		player.row = r;
@@ -116,13 +137,46 @@ Board::move_player( WINDOW * w , int const r , int const c ) {
 
 
 void
-Board::move_player_by( WINDOW * w , int const delta_r , int const delta_c ) {
+Board::move_player_by(
+		 WINDOW * w
+		,int const delta_r
+		,int const delta_c )
+{
 	move_player( w
 			, player.row + delta_r
 			, player.col + delta_c
 			);
 }
 
+
+void
+Board::change_tiletype_at(
+		 WINDOW * w
+		,int const r
+		,int const c
+		,enum tiletype tt)
+{
+	if( is_inside(r,c) ) {
+		tile[r][c] = tt;
+		mvwprintw( w , r , c , "%s" , TILECHARACTER[tile[r][c]]);
+		move(0,0);
+	}
+}
+
+
+void
+Board::change_tiletype_relative_to_player(
+		 WINDOW * w
+		,int const delta_r
+		,int const delta_c
+		,enum tiletype tt)
+{
+	change_tiletype_at(
+			 w
+			,player.row + delta_r
+			,player.col + delta_c
+			,tt );
+}
 
 
 int main(int argc, char * argv[])
@@ -140,7 +194,7 @@ int main(int argc, char * argv[])
 	WINDOW * win_text  = newwin( 12 , 60 , 4 + DUNGEON_SIZE_ROWS , 4 );
 	printw("hemlo\n");
 	refresh();
-	wprintw(win_text , "q quit\nwasd/hjkl move\n" );
+	wprintw(win_text , "q quit\nwasd|hjkl|arrows move\nW  make tile walkable\nV make tile void\nS make tile solid\nC stop changing tiles\n" );
 	wrefresh(win_text);
 	/* } ncurses_init */
 
@@ -158,7 +212,8 @@ int main(int argc, char * argv[])
 	move(0,0);
 	wrefresh(win_dungeon);
 
-	
+	enum tiletype set_tiletype = tiletype_walkable;
+	bool flag_change_tile = false;
 	while( (ch = getch()) ) {
 		int move_r = 0;
 		int move_c = 0;
@@ -183,8 +238,26 @@ int main(int argc, char * argv[])
 			case 'l':
 				++(move_c);
 				break;
+			case 'C':
+				flag_change_tile = false;
+				break;
+			case 'W':
+				set_tiletype = tiletype_walkable;
+				flag_change_tile = true;
+				break;
+			case 'V':
+				set_tiletype = tiletype_void;
+				flag_change_tile = true;
+				break;
+			case 'S':
+				set_tiletype = tiletype_solid;
+				flag_change_tile = true;
+				break;
 			case 'q':
 				goto jump_end;
+		}
+		if( flag_change_tile && (move_r || move_c) ) {
+			b.change_tiletype_relative_to_player( win_dungeon , move_r , move_c , set_tiletype );
 		}
 		b.move_player_by( win_dungeon , move_r , move_c );
 		wrefresh(win_dungeon);
