@@ -12,6 +12,7 @@
 //   5. not compile-time-only setting of boardsize
 //   6. pick and show path of movement (somehow)
 
+// FIX: the cursor in board doesn't display correctly.
 
 enum tiletype {
 	tiletype_void ,
@@ -28,10 +29,10 @@ const char * TILECHARACTER[] = {
 const char * CHAR_PLAYER = "@";
 
 
-int const DUNGEON_SIZE_ROWS = 0x8;
-static_assert(DUNGEON_SIZE_ROWS > 0);
-int const DUNGEON_SIZE_COLS = 0xc;
-static_assert(DUNGEON_SIZE_COLS > 0);
+int const DEFAULT_DUNGEON_SIZE_ROWS = 0x8;
+static_assert(DEFAULT_DUNGEON_SIZE_ROWS > 0);
+int const DEFAULT_DUNGEON_SIZE_COLS = 0xc;
+static_assert(DEFAULT_DUNGEON_SIZE_COLS > 0);
 
 
 struct Position {
@@ -39,38 +40,55 @@ struct Position {
 	int col = 0;
 };
 
+struct Entity {
+	const char * display;
+	const char * description;
+};
+
 
 struct Board {
-	//enum tiletype tile[DUNGEON_SIZE_ROWS][DUNGEON_SIZE_COLS] = { 0 };
 	std::vector< std::vector<enum tiletype> > tile;
+	//std::vector<Entity> vector_entities;
+	int dungeon_size_rows;
+	int dungeon_size_cols;
 	Position player;
-	void wprint_board(WINDOW * w);
-	void wprint_position(WINDOW * w);
-	bool is_walkable(  int const r ,int const c );
+	Position position_cursor;
+	void wprint_board( WINDOW * w );
+	void wprint_position( WINDOW * w );
+	void wprint_position_cursor( WINDOW * w );
+	bool is_walkable( int const r ,int const c );
 	bool is_inside( int const r , int const c );
 	void move_player( WINDOW * w , int const r , int const c );
+	void move_cursor( WINDOW * w , int const r , int const c );
 	void move_player_by( WINDOW * w , int const delta_r , int const delta_c );
+	void move_cursor_by( WINDOW * w , int const delta_r , int const delta_c );
+	void move_global_cursor( WINDOW * w ) ;
 	void wprint_tile( WINDOW * w , int const r , int const c );
-	void wprint_player(WINDOW * w);
+	void wprint_player( WINDOW * w );
 
 	void change_tiletype_at(
 			WINDOW * w
 			,int const r
 			,int const c
-			,enum tiletype tt);
+			,enum tiletype tt );
+	void change_tiletype_at_cursor(
+			WINDOW * w
+			,enum tiletype tt );
 	void change_tiletype_relative_to_player(
 			WINDOW * w
 			,int const delta_r
 			,int const delta_c
-			,enum tiletype tt);
+			,enum tiletype tt );
 	Board( int const rows , int const cols );
 	Board( ) : Board(
-		 DUNGEON_SIZE_ROWS
-		, DUNGEON_SIZE_COLS ) {}
+		 DEFAULT_DUNGEON_SIZE_ROWS
+		, DEFAULT_DUNGEON_SIZE_COLS ) {}
 };
 
 
 Board::Board( int const rows , int const cols ){
+	dungeon_size_rows = rows;
+	dungeon_size_rows = cols;
 	assert(rows > 1);
 	assert(cols > 1);
 	tile.resize(rows);
@@ -80,6 +98,8 @@ Board::Board( int const rows , int const cols ){
 			each_cell = tiletype_walkable;
 		}
 	}
+	dungeon_size_rows = rows;
+	dungeon_size_cols = cols;
 }
 
 
@@ -95,11 +115,12 @@ Board::wprint_player(WINDOW * w) {
 }
 
 
+
 void
 Board::wprint_board(WINDOW * w){
 	wmove(w , 0 , 0);
-	for( size_t r = 0; r < DUNGEON_SIZE_ROWS; ++r ) {
-		for( size_t c = 0; c < DUNGEON_SIZE_COLS; ++c ) {
+	for( int r = 0; r < dungeon_size_rows; ++r ) {
+		for( int c = 0; c < dungeon_size_cols; ++c ) {
 			wprintw( w , "%s" , TILECHARACTER[tile[r][c]] );
 		}
 		wprintw(w , "\n");
@@ -110,8 +131,13 @@ Board::wprint_board(WINDOW * w){
 
 void
 Board::wprint_position(WINDOW * w) {
-	wprintw(w , "[%d ; %d]" , player.row , player.col);
+	wprintw(w , "[%d ; %d]\n" , player.row , player.col);
 }
+void
+Board::wprint_position_cursor(WINDOW * w) {
+	wprintw(w , "[%d ; %d]\n" , position_cursor.row , position_cursor.col);
+}
+
 
 bool
 Board::is_inside( int const r , int const c ) {
@@ -121,14 +147,15 @@ Board::is_inside( int const r , int const c ) {
 	if( (c < 0) ) {
 		return false;
 	}
-	if( (r >= DUNGEON_SIZE_ROWS) ) {
+	if( (r >= dungeon_size_rows) ) {
 		return false;
 	}
-	if( (c >= DUNGEON_SIZE_COLS) ) {
+	if( (c >= dungeon_size_cols) ) {
 		return false;
 	}
 	return true;
 }
+
 
 bool
 Board::is_walkable( int const r , int const c ) {
@@ -153,6 +180,18 @@ Board::move_player(
 	wprint_player(w);
 	move(0,0);
 }
+void
+Board::move_cursor(
+		WINDOW * w
+		, int const r
+		, int const c )
+{
+	if(is_inside(r,c)) {
+		position_cursor.row = r;
+		position_cursor.col = c;
+	}
+	wmove(w,r,c);
+}
 
 
 void
@@ -164,6 +203,30 @@ Board::move_player_by(
 	move_player( w
 			, player.row + delta_r
 			, player.col + delta_c
+			);
+}
+void
+Board::move_cursor_by(
+		 WINDOW * w
+		,int const delta_r
+		,int const delta_c )
+{
+	move_cursor(
+			 w
+			,position_cursor.row + delta_r
+			,position_cursor.col + delta_c
+			);
+}
+
+
+void
+Board::move_global_cursor( WINDOW * w ) {
+	int wbeg_row;
+	int wbeg_col;
+	getbegyx(w ,wbeg_row , wbeg_col);
+	move(
+			wbeg_row + position_cursor.row
+			,wbeg_col + position_cursor.col
 			);
 }
 
@@ -180,6 +243,18 @@ Board::change_tiletype_at(
 		mvwprintw( w , r , c , "%s" , TILECHARACTER[tile[r][c]]);
 		move(0,0);
 	}
+}
+
+
+void
+Board::change_tiletype_at_cursor(
+		 WINDOW * w
+		,enum tiletype tt )
+{
+	assert( is_inside( position_cursor.row, position_cursor.col ));
+	tile[position_cursor.row][position_cursor.col] = tt;
+	wprintw( w , "%s" , TILECHARACTER[tt] );
+	wmove( w , position_cursor.row , position_cursor.col ); // reset cursor back where it was
 }
 
 
@@ -202,22 +277,26 @@ int main()//int argc, char * argv[])
 {
 	/* ncurses_init {   */
 	/* boilerplate from http://tldp.org/HOWTO/NCURSES-Programming-HOWTO */
-	int ch;
+
+	int const dungeon_size_rows = DEFAULT_DUNGEON_SIZE_ROWS;
+	int const dungeon_size_cols = DEFAULT_DUNGEON_SIZE_COLS;
+	int const screen_size_rows = dungeon_size_rows;
+	int const screen_size_cols = dungeon_size_cols;
 
 	initscr();			/* Start curses mode 		*/
 	raw();				/* Line buffering disabled	*/
 	keypad(stdscr, TRUE);		/* We get F1, F2 etc..		*/
 	noecho();			/* Don't echo() while we do getch */
 
-	WINDOW * win_dungeon = newwin( DUNGEON_SIZE_ROWS+2 , DUNGEON_SIZE_COLS+2 , 2 , 2 );
-	WINDOW * win_text  = newwin( 12 , 60 , 4 + DUNGEON_SIZE_ROWS , 4 );
+	WINDOW * win_dungeon = newwin( screen_size_rows+2 , screen_size_cols+2 , 2 , 16 );
+	WINDOW * win_text  = newwin( 12 , 60 , 4 + screen_size_rows , 12 );
 	printw("hemlo\n");
 	refresh();
-	wprintw(win_text , "q quit\nwasd|hjkl|arrows move\nW  make tile walkable\nV make tile void\nS make tile solid\nC stop changing tiles\n" );
+	wprintw(win_text , "q quit\nwasd|hjkl|arrows move\nW  make tile walkable\nV make tile void\nS make tile solid\nT stop changing tiles\nC switch to moving cursor\nP switch to moving player\n" );
 	wrefresh(win_text);
 	/* } ncurses_init */
 
-	Board b;
+	Board b = Board();
 	for( size_t r = 0 ; r < 3; ++r ) {
 		for( size_t c = 0 ; c < 4; ++c ) {
 			b.tile[r][c] = tiletype_walkable;
@@ -233,6 +312,9 @@ int main()//int argc, char * argv[])
 
 	enum tiletype set_tiletype = tiletype_walkable;
 	bool flag_change_tile = false;
+	bool flag_move_cursor = false;
+	bool flag_set_tiletype_at_cursor = false;
+	int ch;
 	while( (ch = getch()) ) {
 		int move_r = 0;
 		int move_c = 0;
@@ -257,7 +339,7 @@ int main()//int argc, char * argv[])
 			case 'l':
 				++(move_c);
 				break;
-			case 'C':
+			case 'T':
 				flag_change_tile = false;
 				break;
 			case 'W':
@@ -272,16 +354,35 @@ int main()//int argc, char * argv[])
 				set_tiletype = tiletype_solid;
 				flag_change_tile = true;
 				break;
+			case 'C':
+				flag_move_cursor = true;
+				break;
+			case 'P':
+				flag_move_cursor = false;
+				break;
+			case 't':
+				flag_set_tiletype_at_cursor = true;
+				break;
 			case 'q':
 				goto jump_end;
 		}
-		if( flag_change_tile && (move_r || move_c) ) {
+		if( flag_set_tiletype_at_cursor ) {
+			b.change_tiletype_at_cursor( win_dungeon , set_tiletype );
+			flag_set_tiletype_at_cursor = false;
+		}
+		if( (!flag_move_cursor) && flag_change_tile && (move_r || move_c) ) {
 			b.change_tiletype_relative_to_player( win_dungeon , move_r , move_c , set_tiletype );
 		}
-		b.move_player_by( win_dungeon , move_r , move_c );
+		if( flag_move_cursor ) {
+			b.move_cursor_by( win_dungeon , move_r , move_c );
+			b.move_global_cursor( win_dungeon );
+		} else {
+			b.move_player_by( win_dungeon , move_r , move_c );
+		}
 		wrefresh(win_dungeon);
 		werase(win_text);
 		b.wprint_position(win_text);
+		b.wprint_position_cursor(win_text);
 		wrefresh(win_text);
 	}
 
