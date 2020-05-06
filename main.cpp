@@ -6,16 +6,6 @@
 #include <unistd.h>
 
 
-// TODO
-//  ✓1. Board::move_by(int delta_row, delta_col)
-//  ✓2. move with keyboard
-//  ✓3. change tiletype in-game
-//   4. save and load the state of the board
-//  ✓5. not compile-time-only setting of boardsize
-//   6. pick and show path of movement (somehow)
-//
-//   1. Swap all logic about "player" into "entities" (partially done - logic is ready, just needs to be changed in a few places)
-//   2. Add collision between entities
 
 enum tiletype {
 	tiletype_void ,

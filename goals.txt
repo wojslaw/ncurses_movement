@@ -1,0 +1,18 @@
+TODO
+1. ✓ Board::move_by(int delta_row, delta_col)
+2. ✓ move with keyboard
+3. ✓ change tiletype in-game
+4.   save and load the state of the board
+5. ✓ not compile-time-only setting of boardsize
+6.   pick and show path of movement (somehow)
+
+1.   Swap all logic about "player" into "entities" (partially done - logic is ready, just needs to be changed in a few places, and checked)
+2.   Add other entities, and collision between entities
+
+Game-stuff:
+1. Turn-based movement
+2. visual trail of movement(entities that go behind the player after movement and disappear next turn)
+3. enemies: enemy entities for player to fight
+4. ultra-basic "pathfinding". I mean: walking directly towards the player(dumb, straight line). After that is implemented, and only then, think about trying to make it more challenging, ideas for "pathfinding":
+4.1. when player isn't visible, then walk in one of any cardinal-direction line(y-axis, or x-axis) from the player(this will be easy to implement, I think)
+4.2. randomly move in a circle, until the entity can find some opening
